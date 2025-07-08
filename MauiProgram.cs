@@ -15,8 +15,9 @@ namespace Xenia_360____Canary_
                     fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
                 });
 
+            // This line requires the Microsoft.Extensions.Logging.Debug NuGet package
 #if DEBUG
-    		builder.Logging.AddDebug();
+            builder.Logging.AddDebug();
 #endif
 
             return builder.Build();
