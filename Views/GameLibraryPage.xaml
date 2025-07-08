@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Xenia_360____Canary_.Views.GameLibraryPage"
+             xmlns:models="clr-namespace:Xenia_360____Canary_.Models"
+             Title="Game Library"
+             BackgroundColor="Black">
+    <Grid>
+        <Image Source="nxe_background.png" Aspect="AspectFill" />
+
+        <CollectionView ItemsSource="{Binding Games}"
+                        SelectionMode="Single"
+                        SelectedItem="{Binding SelectedGame, Mode=TwoWay}"
+                        Margin="40">
+            <CollectionView.ItemsLayout>
+                <GridItemsLayout Orientation="Vertical" Span="4" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="models:Game">
+                    <Grid Padding="10">
+                        <Border Stroke="Gray" StrokeThickness="2" BackgroundColor="#44FFFFFF">
+                            <Grid RowDefinitions="*,Auto">
+                                <Image Source="{Binding CoverArtPath}" Aspect="AspectFill" HeightRequest="180"/>
+                                <Label Grid.Row="1" Text="{Binding DisplayTitle}" TextColor="White" FontSize="16" HorizontalTextAlignment="Center" Padding="5"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <VerticalStackLayout VerticalOptions="End" HorizontalOptions="Center" Margin="20">
+            <Button Text="Play Game" Command="{Binding PlayGameCommand}" IsEnabled="{Binding IsGameSelected}"
+                    BackgroundColor="{DynamicResource PrimaryColor}" TextColor="White" CornerRadius="20" WidthRequest="200" />
+            <Button Text="Add Game from File" Command="{Binding AddGameFromFileCommand}"
+                    BackgroundColor="#555" TextColor="White" CornerRadius="20" WidthRequest="200" Margin="0,10,0,0" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

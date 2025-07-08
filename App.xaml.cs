@@ -1,19 +1,14 @@
-﻿#nullable enable
-using Microsoft.Maui.Controls;
-
-namespace Xenia_360____Canary_;
-
-public partial class App : Application
+﻿namespace Xenia_360____Canary_
 {
-    public App()
+    public partial class App : Application
     {
-        InitializeComponent();
-    }
+        public App()
+        {
+            // Remove or comment out InitializeComponent() if you do not have an App.xaml file with XAML content.
+            // If you do have App.xaml, ensure its Build Action is set to "MauiXaml" and that it defines the correct class.
+            // InitializeComponent();
 
-    protected override Window CreateWindow(IActivationState activationState)
-    {
-        // To enable navigation using PushAsync, the root page must be a NavigationPage.
-        // We wrap the MainPage inside a NavigationPage here.
-        return new Window(new NavigationPage(new MainPage()));
+            MainPage = new AppShell();
+        }
     }
 }

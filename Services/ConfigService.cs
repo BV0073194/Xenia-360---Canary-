@@ -1,5 +1,4 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using Tomlyn;
 using Tomlyn.Model;
 
@@ -7,43 +6,37 @@ namespace Xenia_360____Canary_.Services;
 
 public class ConfigService
 {
-    private readonly string _configPath;
-    private readonly string _backupPath;
-
-    private TomlTable _originalConfig;
-
-    public ConfigService(string configFilePath)
+    public TomlTable LoadConfig(string configPath)
     {
-        _configPath = configFilePath;
-        _backupPath = _configPath + ".bak";
-
-        BackupConfig();
-    }
-
-    private void BackupConfig()
-    {
-        if (File.Exists(_configPath))
-            File.Copy(_configPath, _backupPath, true);
-
-        var tomlString = File.ReadAllText(_configPath);
-        _originalConfig = Toml.Parse(tomlString).ToModel();
-    }
-
-    public TomlTable LoadConfig()
-    {
-        var tomlString = File.ReadAllText(_configPath);
+        if (!File.Exists(configPath))
+        {
+            throw new FileNotFoundException("Config file not found.", configPath);
+        }
+        var tomlString = File.ReadAllText(configPath);
         return Toml.Parse(tomlString).ToModel();
     }
 
-    public void SaveConfig(TomlTable config)
+    public void SaveConfig(string configPath, TomlTable config)
     {
         var tomlString = Toml.FromModel(config);
-        File.WriteAllText(_configPath, tomlString);
+        File.WriteAllText(configPath, tomlString);
     }
 
-    public void RestoreBackup()
+    public void BackupConfig(string configPath)
     {
-        if (File.Exists(_backupPath))
-            File.Copy(_backupPath, _configPath, true);
+        if (File.Exists(configPath))
+        {
+            var backupPath = configPath + ".bak";
+            File.Copy(configPath, backupPath, true);
+        }
+    }
+
+    public void RestoreBackup(string configPath)
+    {
+        var backupPath = configPath + ".bak";
+        if (File.Exists(backupPath))
+        {
+            File.Copy(backupPath, configPath, true);
+        }
     }
 }

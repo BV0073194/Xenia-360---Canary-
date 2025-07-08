@@ -7,4 +7,5 @@ public class DownloadTask
     public string GameFolder { get; set; }
     public string GameTitle { get; set; }
     public bool IsPaused { get; set; }
+    public double Progress { get; set; } // Added for progress binding
 }

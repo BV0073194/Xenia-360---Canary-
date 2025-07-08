@@ -23,9 +23,7 @@ public partial class InstallQueuePage : ContentPage
         if (task != null)
         {
             task.IsPaused = !task.IsPaused;
-            btn.Text = task.IsPaused ? "Resume" : "Pause";
-
-            // TODO: Implement pause/resume logic in DownloadManagerService
+            // This requires implementation in the DownloadManagerService
         }
     }
 

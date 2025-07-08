@@ -7,7 +7,7 @@
 
     <VerticalStackLayout Padding="10" Spacing="10">
         <Label Text="Enter URL to Download:" />
-        <Entry x:Name="DownloadUrlEntry" Placeholder="https://myrient.erista.me/files/..." />
+        <Entry x:Name="DownloadUrlEntry" Placeholder="https://myrient.erista.me/files/Redump/Microsoft%20-%20Xbox%20360/..." />
         <Button Text="Add to Download Queue" Clicked="AddDownload_Clicked" />
         <CollectionView x:Name="DownloadQueueView" ItemsSource="{Binding Downloads}">
             <CollectionView.ItemTemplate>

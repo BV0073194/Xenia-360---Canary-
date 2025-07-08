@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Xenia_360____Canary_.Views.XeniaStorePage"
+             Title="Xenia Store">
+    <Grid>
+        <WebView x:Name="StoreWebView" Source="https://myrient.erista.me/files/Redump/Microsoft%20-%20Xbox%20360/"
+                 Navigating="StoreWebView_OnNavigating"/>
+    </Grid>
+</ContentPage>

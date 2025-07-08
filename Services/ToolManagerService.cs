@@ -25,7 +25,7 @@ namespace Xenia_360____Canary_.Services
         private void ValidateTool(string path, string name)
         {
             if (!File.Exists(path))
-                throw new FileNotFoundException($"Required tool '{name}' not found in Tools folder.", path);
+                throw new FileNotFoundException($"Required tool '{name}' not found in Tools folder. Please create a 'Tools' folder next to the application executable and place {name} inside.", path);
         }
     }
 }

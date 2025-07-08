@@ -9,37 +9,26 @@ namespace Xenia_360____Canary_.Services;
 public class ControllerService
 {
     private readonly IDispatcherTimer _timer;
-    public event Action? OnHomeButtonPressed = delegate { };
+    public event Action? OnHomeButtonPressed;
 
 #if WINDOWS
     private Gamepad? _gamepad;
+    private bool _isHomeButtonDown = false;
 #endif
 
     public ControllerService(IDispatcher dispatcher)
     {
-#if WINDOWS
-        Gamepad.GamepadAdded += Gamepad_GamepadAdded;
-        Gamepad.GamepadRemoved += Gamepad_GamepadRemoved;
-#endif
-
         _timer = dispatcher.CreateTimer();
         _timer.Interval = TimeSpan.FromMilliseconds(100);
         _timer.Tick += Timer_Tick;
-        _timer.Start();
-    }
 
 #if WINDOWS
-    private void Gamepad_GamepadAdded(object? sender, Gamepad e)
-    {
-        _gamepad = e;
-    }
-
-    private void Gamepad_GamepadRemoved(object? sender, Gamepad e)
-    {
-        if (_gamepad == e)
-            _gamepad = null;
-    }
+        Gamepad.GamepadAdded += (s, e) => { _gamepad = Gamepad.Gamepads.FirstOrDefault(); };
+        Gamepad.GamepadRemoved += (s, e) => { _gamepad = Gamepad.Gamepads.FirstOrDefault(); };
+        _gamepad = Gamepad.Gamepads.FirstOrDefault();
 #endif
+        _timer.Start();
+    }
 
     private void Timer_Tick(object? sender, EventArgs e)
     {
@@ -47,14 +36,13 @@ public class ControllerService
         if (_gamepad != null)
         {
             var reading = _gamepad.GetCurrentReading();
+            bool isPressed = (reading.Buttons & GamepadButtons.View) == GamepadButtons.View; // Using "View" button as Home
 
-            // No GamepadButtons.Home in Windows.Gaming.Input, using View as a Home equivalent
-            const GamepadButtons HomeEquivalent = GamepadButtons.View;
-
-            if ((reading.Buttons & HomeEquivalent) == HomeEquivalent)
+            if (isPressed && !_isHomeButtonDown)
             {
                 OnHomeButtonPressed?.Invoke();
             }
+            _isHomeButtonDown = isPressed;
         }
 #endif
     }

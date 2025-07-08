@@ -17,6 +17,7 @@ public partial class MainPage : ContentPage
 
     private Game? _selectedGame;
 
+    // Make sure this path is correctly set in the new settings service/page
     private string _xeniaCanaryPath = @"C:\Path\To\Xenia\xenia-canary.exe";
 
     public MainPage()
@@ -24,7 +25,6 @@ public partial class MainPage : ContentPage
         InitializeComponent();
         BindingContext = this;
 
-        // Pass the Dispatcher of this Page to ControllerService
         _controllerService = new ControllerService(Dispatcher);
 
         LoadGames();
@@ -60,6 +60,7 @@ public partial class MainPage : ContentPage
 
         try
         {
+            // You should fetch the path from your settings service here
             await _xeniaLauncherService.LaunchGameAsync(_selectedGame, _xeniaCanaryPath);
         }
         catch (Exception ex)
@@ -70,6 +71,7 @@ public partial class MainPage : ContentPage
 
     private async void SettingsClicked(object sender, EventArgs e)
     {
+        // This should navigate to your new SettingsPage
         await Navigation.PushAsync(new SettingsPage());
     }
 
@@ -83,18 +85,19 @@ public partial class MainPage : ContentPage
         await Navigation.PushAsync(new InstallQueuePage());
     }
 
-    private void OnDownloadCompleted(DownloadTask task, bool success)
+    // Corrected method signature
+    private void OnDownloadCompleted(DownloadTask task, bool success, string message)
     {
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             if (success)
             {
                 await DisplayAlert("Download Complete", $"Game \"{task.GameTitle}\" has finished installing.", "OK");
-                LoadGames();
+                LoadGames(); // Refresh the game list
             }
             else
             {
-                await DisplayAlert("Download Failed", $"Failed to download \"{task.GameTitle}\".", "OK");
+                await DisplayAlert("Download Failed", $"Failed to download \"{task.GameTitle}\". Reason: {message}", "OK");
             }
         });
     }

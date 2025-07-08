@@ -19,7 +19,7 @@ public class DownloadManagerService
     private readonly Queue<DownloadTask> _queue = new();
     private bool _isDownloading = false;
 
-    public event Action<DownloadTask, bool>? DownloadCompleted;
+    public event Action<DownloadTask, bool, string>? DownloadCompleted;
     public event Action<DownloadTask, double>? DownloadProgress;
 
     private readonly ToolManagerService _toolManager;
@@ -38,7 +38,8 @@ public class DownloadManagerService
 
     public void RemoveFromQueue(DownloadTask task)
     {
-        var itemsToKeep = _queue.Where(t => t != task).ToList();
+        // This creates a new queue with all items except the one to be removed
+        var itemsToKeep = _queue.Where(t => t.Url != task.Url).ToList();
         _queue.Clear();
         foreach (var item in itemsToKeep)
         {
@@ -66,12 +67,12 @@ public class DownloadManagerService
             await ExtractIfNeededAsync(task.Destination, task.GameFolder);
             await GenerateGameMetadata(task.GameFolder);
 
-            DownloadCompleted?.Invoke(task, true);
+            DownloadCompleted?.Invoke(task, true, "Download and installation successful!");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Download failed for {task.GameTitle}: {ex.Message}");
-            DownloadCompleted?.Invoke(task, false);
+            DownloadCompleted?.Invoke(task, false, ex.Message);
         }
 
         await StartNextDownloadAsync();
@@ -99,19 +100,16 @@ public class DownloadManagerService
 
         var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
 
-        // FIX: Added logic to parse standard output for progress updates.
         proc.OutputDataReceived += (sender, args) =>
         {
             if (string.IsNullOrWhiteSpace(args.Data)) return;
 
-            // Regex to find the percentage from aria2c's output, e.g., (99%)
             var match = Regex.Match(args.Data, @"\(([^)]+%)\)");
             if (match.Success)
             {
                 var percentageString = match.Groups[1].Value.Replace("%", "");
                 if (double.TryParse(percentageString, NumberStyles.Any, CultureInfo.InvariantCulture, out double percentage))
                 {
-                    // Invoke the progress event to update the UI
                     DownloadProgress?.Invoke(task, percentage);
                 }
             }
@@ -124,7 +122,7 @@ public class DownloadManagerService
         };
 
         proc.Start();
-        proc.BeginOutputReadLine(); // Start reading the output asynchronously
+        proc.BeginOutputReadLine();
         proc.BeginErrorReadLine();
 
         return tcs.Task;
@@ -191,7 +189,7 @@ public class DownloadManagerService
         var game = new Game { GameFolderPath = gameFolder };
         ParseVfsDump(vfsOutputPath, game);
 
-        GameLibraryService.AddGame(game);
+        GameLibraryService.AddOrUpdateGame(game);
     }
 
     private void ParseVfsDump(string jsonPath, Game game)

@@ -2,14 +2,13 @@
 <ContentPage 
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:local="clr-namespace:Xenia_360____Canary_.Views"
     x:Class="Xenia_360____Canary_.MainPage">
 
     <Grid RowDefinitions="80,*,80" ColumnDefinitions="*">
         <!-- Header -->
         <StackLayout Orientation="Horizontal" BackgroundColor="#101010" Padding="10" Grid.Row="0">
             <Label Text="Xenia NXE Dashboard" FontSize="28" VerticalOptions="Center" TextColor="White"/>
-            <Button Text="Settings" Clicked="SettingsClicked" HorizontalOptions="EndAndExpand" />
+            <Button Text="Settings" Clicked="SettingsClicked" HorizontalOptions="End" />
         </StackLayout>
 
         <!-- Game Library -->
@@ -22,7 +21,13 @@
             </CollectionView.ItemsLayout>
             <CollectionView.ItemTemplate>
                 <DataTemplate>
-                    <local:GameTile />
+                    <!-- Replace with a simple layout for now, as GameTile is missing or not found -->
+                    <Frame Padding="10" Margin="5" BackgroundColor="#222" CornerRadius="10">
+                        <StackLayout>
+                            <Label Text="{Binding Title}" FontSize="18" TextColor="White"/>
+                            <Label Text="{Binding Description}" FontSize="14" TextColor="Gray"/>
+                        </StackLayout>
+                    </Frame>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
