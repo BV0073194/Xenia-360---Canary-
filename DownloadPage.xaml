@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="Xenia_360____Canary_.DownloadPage"
+    Title="Xenia Store Download">
+
+    <VerticalStackLayout Padding="10" Spacing="10">
+        <Label Text="Enter URL to Download:" />
+        <Entry x:Name="DownloadUrlEntry" Placeholder="https://myrient.erista.me/files/..." />
+        <Button Text="Add to Download Queue" Clicked="AddDownload_Clicked" />
+        <CollectionView x:Name="DownloadQueueView" ItemsSource="{Binding Downloads}">
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <StackLayout Orientation="Horizontal" Padding="5">
+                        <Label Text="{Binding GameTitle}" VerticalOptions="Center" HorizontalOptions="StartAndExpand"/>
+                        <Label Text="{Binding Url}" VerticalOptions="Center" HorizontalOptions="End" FontSize="10"/>
+                    </StackLayout>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </VerticalStackLayout>
+</ContentPage>

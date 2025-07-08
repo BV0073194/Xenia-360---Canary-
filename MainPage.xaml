@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage 
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:Xenia_360____Canary_.Views"
+    x:Class="Xenia_360____Canary_.MainPage">
+
+    <Grid RowDefinitions="80,*,80" ColumnDefinitions="*">
+        <!-- Header -->
+        <StackLayout Orientation="Horizontal" BackgroundColor="#101010" Padding="10" Grid.Row="0">
+            <Label Text="Xenia NXE Dashboard" FontSize="28" VerticalOptions="Center" TextColor="White"/>
+            <Button Text="Settings" Clicked="SettingsClicked" HorizontalOptions="EndAndExpand" />
+        </StackLayout>
+
+        <!-- Game Library -->
+        <CollectionView x:Name="GameLibrary" Grid.Row="1"
+                        SelectionMode="Single"
+                        SelectionChanged="GameLibrary_SelectionChanged"
+                        ItemsSource="{Binding Games}">
+            <CollectionView.ItemsLayout>
+                <GridItemsLayout Orientation="Vertical" Span="4"/>
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate>
+                    <local:GameTile />
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Footer with Play Button -->
+        <StackLayout Orientation="Horizontal" HorizontalOptions="Center" VerticalOptions="Center" Grid.Row="2" Padding="10" Spacing="20">
+            <Button x:Name="PlayButton" Text="Play" Clicked="PlayButton_Clicked" WidthRequest="300" />
+            <Button x:Name="DownloadButton" Text="Download Game" Clicked="DownloadButton_Clicked" WidthRequest="300" />
+            <Button x:Name="InstallQueueButton" Text="Install Queue" Clicked="InstallQueueButton_Clicked" WidthRequest="300" />
+        </StackLayout>
+    </Grid>
+</ContentPage>

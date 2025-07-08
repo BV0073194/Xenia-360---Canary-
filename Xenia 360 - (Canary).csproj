@@ -1,0 +1,101 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<!-- Target all platforms -->
+		<TargetFrameworks>net9.0-android;net9.0-ios;net9.0-maccatalyst;net9.0-windows10.0.19041.0</TargetFrameworks>
+
+		<OutputType>Exe</OutputType>
+		<RootNamespace>Xenia_360____Canary_</RootNamespace>
+
+		<!-- Enable MAUI -->
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+
+		<!-- Enable implicit usings and nullable reference types -->
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<!-- App info -->
+		<ApplicationTitle>Xenia 360 - (Canary)</ApplicationTitle>
+		<ApplicationId>com.companyname.xenia360canary</ApplicationId>
+		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+		<ApplicationVersion>1</ApplicationVersion>
+
+		<!-- Windows SDK minimum version -->
+		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.0</SupportedOSPlatformVersion>
+		<TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.19041.0</TargetPlatformMinVersion>
+
+		<!-- Windows packaging (unpackaged here) -->
+		<WindowsPackageType>None</WindowsPackageType>
+
+		<!-- Optional: Mac Catalyst runtime identifiers for both x64 and arm64 -->
+		<!--
+    <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">maccatalyst-x64;maccatalyst-arm64</RuntimeIdentifiers>
+    -->
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- App icon and splash screen -->
+		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+
+		<!-- Images and resizing -->
+		<MauiImage Include="Resources\Images\*" />
+		<MauiImage Update="Resources\Images\dotnet_bot.png" Resize="True" BaseSize="300,185" />
+
+		<!-- Fonts -->
+		<MauiFont Include="Resources\Fonts\*" />
+
+		<!-- Raw assets without Resources\Raw prefix -->
+		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- Maui Controls and other packages -->
+		<PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
+
+		<!-- Windows SDK contracts and Windows App SDK -->
+		<PackageReference Include="Microsoft.Windows.SDK.Contracts" Version="10.0.26100.4188" />
+		<PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.250606001" />
+
+		<!-- Other packages -->
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="Newtonsoft.Json.Bson" Version="1.0.3" />
+		<PackageReference Include="Newtonsoft.Json.Schema" Version="4.0.1" />
+		<PackageReference Include="SharpCompress" Version="0.40.0" />
+		<PackageReference Include="Tomlyn" Version="0.19.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- XAML files and their code-behind -->
+		<Compile Update="DownloadPage.xaml.cs">
+			<DependentUpon>DownloadPage.xaml</DependentUpon>
+		</Compile>
+		<Compile Update="InstallQueuePage.xaml.cs">
+			<DependentUpon>InstallQueuePage.xaml</DependentUpon>
+		</Compile>
+		<Compile Update="SettingsPage.xaml.cs">
+			<DependentUpon>SettingsPage.xaml</DependentUpon>
+		</Compile>
+		<Compile Update="Views\GameTile.xaml.cs">
+			<DependentUpon>GameTile.xaml</DependentUpon>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<MauiXaml Update="DownloadPage.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="InstallQueuePage.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="SettingsPage.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\GameTile.xaml">
+			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+	</ItemGroup>
+
+</Project>

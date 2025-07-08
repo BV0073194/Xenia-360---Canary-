@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="Xenia_360____Canary_.SettingsPage"
+    Title="Settings">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="10" Spacing="15">
+            <Label Text="Xenia Canary Executable Path" />
+            <Entry x:Name="XeniaPathEntry" Placeholder="Path to xenia-canary.exe" />
+            <Button Text="Save" Clicked="SaveSettings_Clicked" />
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

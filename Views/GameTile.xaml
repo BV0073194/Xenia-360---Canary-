@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="Xenia_360____Canary_.Views.GameTile"
+    BackgroundColor="#303030"
+    Padding="8"
+    WidthRequest="200"
+    HeightRequest="250">
+
+    <Grid>
+        <Frame CornerRadius="15" HasShadow="True" Padding="0" BackgroundColor="#202020">
+            <Image Source="{Binding TileImagePath}" Aspect="AspectFill" />
+        </Frame>
+
+        <Label Text="{Binding Title}" 
+               TextColor="White" 
+               VerticalOptions="End" 
+               BackgroundColor="#80000000" 
+               Padding="5" 
+               FontSize="18" 
+               HorizontalTextAlignment="Center" />
+    </Grid>
+</ContentView>

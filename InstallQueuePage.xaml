@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="Xenia_360____Canary_.InstallQueuePage"
+    Title="Install Queue">
+
+    <CollectionView x:Name="QueueView" ItemsSource="{Binding InstallQueue}">
+        <CollectionView.ItemTemplate>
+            <DataTemplate>
+                <StackLayout Orientation="Horizontal" Padding="10">
+                    <Label Text="{Binding GameTitle}" VerticalOptions="Center" HorizontalOptions="StartAndExpand" />
+                    <Button Text="Pause" Clicked="Pause_Clicked" />
+                    <Button Text="Remove" Clicked="Remove_Clicked" />
+                </StackLayout>
+            </DataTemplate>
+        </CollectionView.ItemTemplate>
+    </CollectionView>
+
+</ContentPage>
