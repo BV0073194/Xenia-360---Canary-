@@ -4,118 +4,195 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using Xenia_360____Canary_.Models;
 
-namespace Xenia_360____Canary_.Services;
-
-public class XeniaLauncherService
+namespace Xenia_360____Canary_.Services
 {
-    [DllImport("user32.dll")]
-    private static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
-
-    [DllImport("user32.dll")]
-    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
-    private Process? _xeniaProcess;
-    private readonly ConfigService _configService = new();
-    private string? _activeConfigPath;
-
-    public event Action? OnXeniaClosed;
-
-    public async Task LaunchGameAsync(Game game, string xeniaExePath)
+    public class XeniaLauncherService
     {
-        if (string.IsNullOrEmpty(xeniaExePath) || !File.Exists(xeniaExePath))
-            throw new Exception("Xenia executable not found at the specified path.");
+        [DllImport("user32.dll")]
+        private static extern IntPtr SetParent(IntPtr hWndChild, IntPtr hWndNewParent);
 
-        if (game.DefaultLaunchPath == null || !File.Exists(game.DefaultLaunchPath))
-            throw new Exception($"Game launch file not found: {game.DefaultLaunchPath}");
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-        _activeConfigPath = Path.Combine(Path.GetDirectoryName(xeniaExePath)!, "xenia-canary.config.toml");
+        private Process? _xeniaProcess;
+        public event Action? OnXeniaClosed;
+        private readonly ToolManagerService _toolManager = new();
 
-        // Handle per-game configuration
-        if (game.GameSpecificConfig != null)
+        public async Task LaunchGameAsync(Game game, string xeniaExePath)
         {
-            _configService.BackupConfig(_activeConfigPath);
-            _configService.SaveConfig(_activeConfigPath, game.GameSpecificConfig);
-        }
+            if (string.IsNullOrEmpty(xeniaExePath) || !File.Exists(xeniaExePath))
+                throw new Exception("Xenia executable not found at the specified path.");
 
-        var psi = new ProcessStartInfo
-        {
-            FileName = xeniaExePath,
-            Arguments = $"\"{game.DefaultLaunchPath}\"",
-            UseShellExecute = false,
-            CreateNoWindow = false
-        };
+            var launchPath = game.DefaultLaunchPath;
+            if (string.IsNullOrEmpty(launchPath) || !File.Exists(launchPath))
+                throw new Exception($"Game launch file not found: {launchPath}");
 
-        _xeniaProcess = Process.Start(psi);
+            var psi = new ProcessStartInfo
+            {
+                FileName = xeniaExePath,
+                Arguments = $"\"{launchPath}\"",
+                UseShellExecute = false,
+                CreateNoWindow = false
+            };
 
-        if (_xeniaProcess != null)
-        {
+            _xeniaProcess = Process.Start(psi);
+
+            if (_xeniaProcess == null)
+            {
+                throw new Exception("Failed to start the Xenia process.");
+            }
+
             _xeniaProcess.EnableRaisingEvents = true;
-            _xeniaProcess.Exited += XeniaProcess_Exited;
-            await NestXeniaWindow();
+            _xeniaProcess.Exited += (s, e) => OnXeniaClosed?.Invoke();
+
+            // Run window nesting and metadata scan in the background
+            _ = Task.Run(() => PostLaunchOperations(game));
         }
-        else
+
+        private async Task PostLaunchOperations(Game game)
         {
-            throw new Exception("Failed to start the Xenia process.");
+            if (_xeniaProcess == null) return;
+
+            try
+            {
+                // Wait for the window to be ready and get its handle
+                IntPtr xeniaHwnd = IntPtr.Zero;
+                for (int i = 0; i < 20; i++) // Wait up to 10 seconds
+                {
+                    await Task.Delay(500);
+                    _xeniaProcess.Refresh();
+                    if (_xeniaProcess.MainWindowHandle != IntPtr.Zero)
+                    {
+                        xeniaHwnd = _xeniaProcess.MainWindowHandle;
+                        break;
+                    }
+                }
+
+                if (xeniaHwnd != IntPtr.Zero)
+                {
+                    // --- FIX FOR WINDOW NESTING ---
+                    // This needs to be run on the main UI thread
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        var parentHwnd = GetAppWindowHandle();
+                        if (parentHwnd != IntPtr.Zero)
+                        {
+                            SetParent(xeniaHwnd, parentHwnd);
+                            const int SW_SHOWMAXIMIZED = 3; // Constant for maximizing window
+                            ShowWindow(xeniaHwnd, SW_SHOWMAXIMIZED);
+                        }
+                    });
+
+                    // If the game has not been scanned yet, do it now.
+                    if (!game.IsMetadataScanned)
+                    {
+                        await ScanRunningGameMetadataAsync(game, _xeniaProcess.MainWindowTitle);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Post-launch operations failed: {ex.Message}");
+            }
         }
-    }
 
-    private async Task NestXeniaWindow()
-    {
-        // Give Xenia time to initialize its main window
-        await Task.Delay(2000);
-
-        if (_xeniaProcess == null || _xeniaProcess.HasExited) return;
-
-        var hwnd = _xeniaProcess.MainWindowHandle;
-        if (hwnd == IntPtr.Zero)
+        private async Task ScanRunningGameMetadataAsync(Game game, string xeniaWindowTitle)
         {
-            // Retry logic can be added here if needed
-            return;
+            if (string.IsNullOrEmpty(xeniaWindowTitle)) return;
+
+            var dumpRootPath = Path.Combine(AppContext.BaseDirectory, "X360_DUMP");
+            var dumpOutputPath = Path.Combine(dumpRootPath, game.DisplayTitle.Trim());
+            Directory.CreateDirectory(dumpOutputPath);
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = _toolManager.VfsDumpPath,
+                    // --- FIX FOR VFS DUMP COMMAND ---
+                    Arguments = $"--target \"{xeniaWindowTitle}\" --output \"{dumpOutputPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true, // Hide the dump window
+                };
+
+                using var proc = Process.Start(psi);
+                if (proc == null) return;
+
+                await proc.WaitForExitAsync();
+
+                if (proc.ExitCode != 0)
+                {
+                    Debug.WriteLine($"xenia-vfs-dump failed for window '{xeniaWindowTitle}'.");
+                    return;
+                }
+
+                // The tool dumps the content, we need to find the json file inside
+                string vfsJsonPath = Path.Combine(dumpOutputPath, "vfs_output.json");
+                if (File.Exists(vfsJsonPath))
+                {
+                    ParseVfsDumpAndUpdateGame(vfsJsonPath, game);
+                    game.IsMetadataScanned = true;
+                    GameLibraryService.Save(); // Save the updated game info
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error during metadata scan: {ex.Message}");
+            }
+            finally
+            {
+                // --- FIX FOR CLEANUP ---
+                if (Directory.Exists(dumpRootPath))
+                {
+                    Directory.Delete(dumpRootPath, true);
+                }
+            }
         }
 
+        private void ParseVfsDumpAndUpdateGame(string jsonPath, Game game)
+        {
+            if (!File.Exists(jsonPath)) return;
+
+            var json = File.ReadAllText(jsonPath);
+            var obj = JObject.Parse(json);
+
+            var gameData = obj["volume"]?["game"];
+            if (gameData == null) return;
+
+            game.TitleID = gameData["title_id"]?.ToString();
+            game.TitleName = gameData["title_name"]?.ToString();
+            game.ExecutablePath = gameData["executable"]?.ToString();
+            game.ContentID = gameData["content_id"]?.ToString();
+
+            string contentPath = Path.Combine(game.GameFolderPath ?? "", "Content", "0000000000000000", game.TitleID ?? "", game.ContentID ?? "");
+            if (Directory.Exists(contentPath))
+            {
+                game.LaunchPath = Directory.GetFiles(contentPath, "*", SearchOption.AllDirectories)
+                    .FirstOrDefault(f => f.EndsWith(".xex", StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        private IntPtr GetAppWindowHandle()
+        {
 #if WINDOWS
-        var parentHwnd = GetAppWindowHandle();
-        if (parentHwnd != IntPtr.Zero)
-        {
-            SetParent(hwnd, parentHwnd);
-            const int SW_SHOWMAXIMIZED = 3;
-            ShowWindow(hwnd, SW_SHOWMAXIMIZED);
-        }
+            var window = App.Current?.Windows[0];
+            if (window?.Handler?.PlatformView is Microsoft.UI.Xaml.Window nativeWindow)
+            {
+                return WinRT.Interop.WindowNative.GetWindowHandle(nativeWindow);
+            }
 #endif
-    }
-
-    private void XeniaProcess_Exited(object? sender, EventArgs e)
-    {
-        // Restore original config if a backup was made
-        if (_activeConfigPath != null)
-        {
-            _configService.RestoreBackup(_activeConfigPath);
-            _activeConfigPath = null;
+            return IntPtr.Zero;
         }
-        OnXeniaClosed?.Invoke();
-    }
 
-    public void CloseXenia()
-    {
-        if (_xeniaProcess != null && !_xeniaProcess.HasExited)
+        public void CloseXenia()
         {
-            _xeniaProcess.Kill(); // Forcefully close
+            if (_xeniaProcess != null && !_xeniaProcess.HasExited)
+            {
+                _xeniaProcess.Kill();
+            }
         }
     }
-
-#if WINDOWS
-    private IntPtr GetAppWindowHandle()
-    {
-        var mauiWindow = Microsoft.Maui.Controls.Application.Current?.Windows[0];
-        if (mauiWindow?.Handler?.PlatformView is Microsoft.UI.Xaml.Window nativeWindow)
-        {
-            return WinRT.Interop.WindowNative.GetWindowHandle(nativeWindow);
-        }
-        return IntPtr.Zero;
-    }
-#else
-    private IntPtr GetAppWindowHandle() => IntPtr.Zero;
-#endif
 }

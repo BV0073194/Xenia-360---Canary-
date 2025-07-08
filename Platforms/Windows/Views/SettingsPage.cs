@@ -1,13 +1,13 @@
-using Xenia_360____Canary_.ViewModels;
-
 namespace Xenia_360____Canary_.Views
 {
     public partial class SettingsPage : ContentPage
     {
-        public SettingsPage(SettingsViewModel viewModel)
+        // Add this parameterless constructor
+        public SettingsPage()
         {
             InitializeComponent();
-            BindingContext = viewModel;
         }
+
+        // ...existing constructors or methods...
     }
 }

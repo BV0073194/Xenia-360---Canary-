@@ -1,6 +1,7 @@
 ﻿using System.Windows.Input;
 using Xenia_360____Canary_.Models;
 using Xenia_360____Canary_.Services;
+using Microsoft.Maui.Controls;
 
 namespace Xenia_360____Canary_.ViewModels
 {
@@ -17,10 +18,11 @@ namespace Xenia_360____Canary_.ViewModels
 
         public ICommand SaveSettingsCommand { get; }
 
-        public SettingsViewModel()
+        public SettingsViewModel(SettingsService settingsService)
         {
-            _settingsService = new SettingsService();
-            // Create a copy for editing, so we can save it explicitly
+            _settingsService = settingsService;
+
+            // Create a copy for editing, so the UI doesn't change until the user clicks save
             Settings = new AppSettings
             {
                 XeniaCanaryPath = _settingsService.Settings.XeniaCanaryPath,
@@ -35,13 +37,14 @@ namespace Xenia_360____Canary_.ViewModels
 
         private void SaveSettings()
         {
-            // Copy the edited settings back to the service's instance
+            // Copy the edited settings back to the shared service's instance
             _settingsService.Settings.XeniaCanaryPath = Settings.XeniaCanaryPath;
             _settingsService.Settings.XeniaNetplayPath = Settings.XeniaNetplayPath;
             _settingsService.Settings.XeniaMouselockPath = Settings.XeniaMouselockPath;
             _settingsService.Settings.DefaultXeniaVersion = Settings.DefaultXeniaVersion;
             _settingsService.Settings.ThemeColor = Settings.ThemeColor;
 
+            // Save the shared settings instance to the file
             _settingsService.SaveSettings();
             App.Current.MainPage.DisplayAlert("Success", "Settings saved successfully.", "OK");
         }

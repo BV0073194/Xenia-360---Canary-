@@ -1,57 +1,68 @@
+using System;
 using System.IO;
-using Xenia_360____Canary_.Models; // Make sure your namespace is correct after renaming the project
+using System.Linq;
+using Xenia_360____Canary_.Models;
 using Xenia_360____Canary_.Services;
+using Microsoft.Maui.Storage; // Add this using statement for FileSystem
 
-namespace Xenia_360____Canary_.Views;
-
-public partial class XeniaStorePage : ContentPage
+namespace Xenia_360____Canary_.Views
 {
-    // You should use dependency injection here in the future,
-    // but creating an instance for now is fine.
-    private readonly DownloadManagerService _downloadManager = new();
-
-    public XeniaStorePage()
+    public partial class XeniaStorePage : ContentPage
     {
-        InitializeComponent();
-    }
+        // In a real app with DI, this would be injected. Creating an instance is fine for now.
+        private readonly DownloadManagerService _downloadManager = new();
 
-    private void StoreWebView_OnNavigating(object? sender, WebNavigatingEventArgs e)
-    {
-        var uri = new Uri(e.Url);
-
-        // --- THIS IS THE FIX ---
-        // We now check that the URL path actually has a file extension (like .zip or .iso).
-        // This stops it from triggering on folder pages.
-        bool isMyrientDownload = uri.Host.Contains("myrient.erista.me") && Path.HasExtension(uri.AbsolutePath);
-        bool isArchiveOrgDownload = uri.Host.Contains("archive.org") && uri.AbsolutePath.Contains("/download/") && Path.HasExtension(uri.AbsolutePath);
-
-        if (isMyrientDownload || isArchiveOrgDownload)
+        public XeniaStorePage()
         {
-            // Cancel the navigation in the WebView since we're handling it.
-            e.Cancel = true;
+            InitializeComponent();
+        }
 
-            // Use the main thread to display the UI alert.
-            MainThread.BeginInvokeOnMainThread(async () =>
+        private void StoreWebView_OnNavigating(object? sender, WebNavigatingEventArgs e)
+        {
+            var uri = new Uri(e.Url);
+
+            // Check if the URL is a direct link to a file from a supported host
+            bool isDownloadLink = Path.HasExtension(uri.AbsolutePath) &&
+                                  (uri.Host.Contains("myrient.erista.me") || (uri.Host.Contains("archive.org") && uri.AbsolutePath.Contains("/download/")));
+
+            if (isDownloadLink)
             {
-                bool confirm = await DisplayAlert("Download Confirmation", $"Do you want to download this file?\n\n{Path.GetFileName(uri.AbsolutePath)}", "Yes", "No");
-                if (confirm)
+                // Cancel the navigation in the WebView since we're handling it
+                e.Cancel = true;
+
+                // Use the main thread to display the UI alert
+                MainThread.BeginInvokeOnMainThread(async () =>
                 {
                     var fileName = Path.GetFileName(uri.AbsolutePath);
-                    var downloadFolder = Path.Combine(AppContext.BaseDirectory, "Downloads");
-                    var gameFolder = Path.Combine(AppContext.BaseDirectory, "ROMS", Path.GetFileNameWithoutExtension(fileName));
+                    bool confirm = await DisplayAlert("Download Confirmation", $"Do you want to download this file?\n\n{fileName}", "Yes", "No");
 
-                    var task = new DownloadTask
+                    if (confirm)
                     {
-                        Url = e.Url,
-                        Destination = Path.Combine(downloadFolder, fileName),
-                        GameFolder = gameFolder,
-                        GameTitle = Path.GetFileNameWithoutExtension(fileName) ?? "New Game"
-                    };
+                        // --- THIS IS THE FIX ---
+                        // Use the reliable FileSystem.AppDataDirectory for all paths
 
-                    _downloadManager.EnqueueDownload(task);
-                    await DisplayAlert("Download Queued", $"{task.GameTitle} has been added to the download queue.", "OK");
-                }
-            });
+                        var downloadFolder = Path.Combine(FileSystem.AppDataDirectory, "Downloads");
+                        var gameFolder = Path.Combine(FileSystem.AppDataDirectory, "ROMS", Path.GetFileNameWithoutExtension(fileName));
+
+                        // Ensure the target directories exist
+                        if (!Directory.Exists(downloadFolder))
+                            Directory.CreateDirectory(downloadFolder);
+                        if (!Directory.Exists(gameFolder))
+                            Directory.CreateDirectory(gameFolder);
+
+                        var task = new DownloadTask
+                        {
+                            Url = e.Url,
+                            Destination = Path.Combine(downloadFolder, fileName),
+                            GameFolder = gameFolder, // This now uses the correct, reliable path
+                            GameTitle = Path.GetFileNameWithoutExtension(fileName) ?? "New Game"
+                        };
+
+                        _downloadManager.EnqueueDownload(task);
+                        await DisplayAlert("Download Queued", $"{task.GameTitle} has been added to the download queue.", "OK");
+                    }
+                });
+            }
         }
     }
 }

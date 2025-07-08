@@ -1,7 +1,9 @@
-﻿using System.Collections.ObjectModel;
+﻿using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Microsoft.Maui.Controls;
 using Microsoft.Maui.Dispatching;
 using Xenia_360____Canary_.Models;
 using Xenia_360____Canary_.Services;
@@ -10,8 +12,9 @@ namespace Xenia_360____Canary_.ViewModels
 {
     public class GameLibraryViewModel : BaseViewModel
     {
-        private readonly XeniaLauncherService _xeniaLauncher = new();
-        private readonly SettingsService _settingsService = new();
+        private readonly XeniaLauncherService _xeniaLauncher;
+        private readonly SettingsService _settingsService;
+        private readonly DownloadManagerService _downloadManager;
         private readonly ControllerService _controllerService;
 
         private ObservableCollection<Game> _games = new();
@@ -37,11 +40,15 @@ namespace Xenia_360____Canary_.ViewModels
         public ICommand PlayGameCommand { get; }
         public ICommand AddGameFromFileCommand { get; }
 
-        public GameLibraryViewModel(IDispatcher dispatcher)
+        public GameLibraryViewModel(IDispatcher dispatcher, SettingsService settingsService, XeniaLauncherService xeniaLauncher, DownloadManagerService downloadManager)
         {
+            _settingsService = settingsService;
+            _xeniaLauncher = xeniaLauncher;
+            _downloadManager = downloadManager;
+            _controllerService = new ControllerService(dispatcher); // ControllerService is trickier for DI, this is fine
+
             PlayGameCommand = new Command(async () => await PlayGame(), () => IsGameSelected);
             AddGameFromFileCommand = new Command(async () => await AddGameFromFile());
-            _controllerService = new ControllerService(dispatcher);
 
             LoadGames();
 
@@ -59,12 +66,12 @@ namespace Xenia_360____Canary_.ViewModels
         {
             if (SelectedGame == null) return;
 
-            // This logic should be expanded based on settings
+            // This now reads from the single, shared settings instance
             string? xeniaPath = _settingsService.Settings.XeniaCanaryPath;
 
-            if (string.IsNullOrEmpty(xeniaPath))
+            if (string.IsNullOrEmpty(xeniaPath) || !File.Exists(xeniaPath))
             {
-                await App.Current.MainPage.DisplayAlert("Error", "Xenia path not configured. Please set it in Settings.", "OK");
+                await App.Current.MainPage.DisplayAlert("Error", "Xenia path not configured or not found. Please set it in Settings.", "OK");
                 return;
             }
 
@@ -80,25 +87,33 @@ namespace Xenia_360____Canary_.ViewModels
 
         async Task AddGameFromFile()
         {
+            var fileTypes = new FilePickerFileType(
+                new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip", ".iso" } }
+                });
+
             var result = await FilePicker.PickAsync(new PickOptions
             {
-                // Title is no longer a valid property here
-                PickerTitle = "Select a game file (.iso, .zip, default.xex)"
+                PickerTitle = "Select a game file (.zip or .iso)",
+                FileTypes = fileTypes
             });
 
             if (result != null)
             {
-                await App.Current.MainPage.DisplayAlert("WIP", "Manual game adding is a work in progress. For now, please use the Xenia Store feature.", "OK");
+                var (success, message) = await _downloadManager.ProcessLocalFileAsync(result.FullPath);
+                await App.Current.MainPage.DisplayAlert(success ? "Success" : "Error", message, "OK");
+
+                if (success)
+                {
+                    LoadGames();
+                }
             }
         }
 
         private void OnHomeButtonPressed()
         {
             _xeniaLauncher.CloseXenia();
-            MainThread.BeginInvokeOnMainThread(async () =>
-            {
-                await App.Current.MainPage.DisplayAlert("Xenia", "Xenia has been closed.", "OK");
-            });
         }
     }
 }
