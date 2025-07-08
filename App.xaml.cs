@@ -12,6 +12,8 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState activationState)
     {
-        return new Window(new MainPage());
+        // To enable navigation using PushAsync, the root page must be a NavigationPage.
+        // We wrap the MainPage inside a NavigationPage here.
+        return new Window(new NavigationPage(new MainPage()));
     }
 }

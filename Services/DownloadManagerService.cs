@@ -1,8 +1,11 @@
-﻿using System;
+﻿#nullable enable
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using SharpCompress.Archives;
@@ -16,8 +19,8 @@ public class DownloadManagerService
     private readonly Queue<DownloadTask> _queue = new();
     private bool _isDownloading = false;
 
-    public event Action<DownloadTask, bool> DownloadCompleted;
-    public event Action<DownloadTask, double> DownloadProgress;
+    public event Action<DownloadTask, bool>? DownloadCompleted;
+    public event Action<DownloadTask, double>? DownloadProgress;
 
     private readonly ToolManagerService _toolManager;
 
@@ -35,15 +38,12 @@ public class DownloadManagerService
 
     public void RemoveFromQueue(DownloadTask task)
     {
-        var tempQueue = new Queue<DownloadTask>();
-        while (_queue.Count > 0)
+        var itemsToKeep = _queue.Where(t => t != task).ToList();
+        _queue.Clear();
+        foreach (var item in itemsToKeep)
         {
-            var t = _queue.Dequeue();
-            if (t != task)
-                tempQueue.Enqueue(t);
+            _queue.Enqueue(item);
         }
-        while (tempQueue.Count > 0)
-            _queue.Enqueue(tempQueue.Dequeue());
     }
 
     public async Task StartNextDownloadAsync()
@@ -61,15 +61,16 @@ public class DownloadManagerService
         {
             bool success = await DownloadFileAsync(task);
             if (!success)
-                throw new Exception("aria2c download failed");
+                throw new Exception("aria2c download failed. Check the console for more details.");
 
             await ExtractIfNeededAsync(task.Destination, task.GameFolder);
             await GenerateGameMetadata(task.GameFolder);
 
             DownloadCompleted?.Invoke(task, true);
         }
-        catch
+        catch (Exception ex)
         {
+            Debug.WriteLine($"Download failed for {task.GameTitle}: {ex.Message}");
             DownloadCompleted?.Invoke(task, false);
         }
 
@@ -83,15 +84,38 @@ public class DownloadManagerService
         var psi = new ProcessStartInfo
         {
             FileName = _toolManager.Aria2Path,
-            Arguments = $"--dir=\"{Path.GetDirectoryName(task.Destination)}\" --out=\"{Path.GetFileName(task.Destination)}\" \"{task.Url}\"",
+            Arguments = $"--dir=\"{Path.GetDirectoryName(task.Destination)}\" " +
+                        $"--out=\"{Path.GetFileName(task.Destination)}\" " +
+                        "-x 16 -s 16 " +
+                        "--user-agent=\"Mozilla/5.0 (Windows NT 10.0; Win64; x64)\" " +
+                        "--referer=\"https://archive.org/\" " +
+                        "--summary-interval=1 " + // Get progress updates every second
+                        $"\"{task.Url}\"",
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
 
-        var proc = new Process { StartInfo = psi };
-        proc.EnableRaisingEvents = true;
+        var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+
+        // FIX: Added logic to parse standard output for progress updates.
+        proc.OutputDataReceived += (sender, args) =>
+        {
+            if (string.IsNullOrWhiteSpace(args.Data)) return;
+
+            // Regex to find the percentage from aria2c's output, e.g., (99%)
+            var match = Regex.Match(args.Data, @"\(([^)]+%)\)");
+            if (match.Success)
+            {
+                var percentageString = match.Groups[1].Value.Replace("%", "");
+                if (double.TryParse(percentageString, NumberStyles.Any, CultureInfo.InvariantCulture, out double percentage))
+                {
+                    // Invoke the progress event to update the UI
+                    DownloadProgress?.Invoke(task, percentage);
+                }
+            }
+        };
 
         proc.Exited += (s, e) =>
         {
@@ -100,6 +124,8 @@ public class DownloadManagerService
         };
 
         proc.Start();
+        proc.BeginOutputReadLine(); // Start reading the output asynchronously
+        proc.BeginErrorReadLine();
 
         return tcs.Task;
     }
@@ -120,13 +146,14 @@ public class DownloadManagerService
             var psi = new ProcessStartInfo
             {
                 FileName = _toolManager.ExtractXisoPath,
-                Arguments = $"\"{filePath}\" \"{extractFolder}\"",
+                Arguments = $"-x \"{filePath}\" -d \"{extractFolder}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
 
             var proc = Process.Start(psi);
-            await proc.WaitForExitAsync();
+            if (proc != null)
+                await proc.WaitForExitAsync();
         }
     }
 
@@ -137,18 +164,33 @@ public class DownloadManagerService
         var psi = new ProcessStartInfo
         {
             FileName = _toolManager.VfsDumpPath,
-            Arguments = $"\"{gameFolder}\" > \"{vfsOutputPath}\"",
-            UseShellExecute = true,
+            Arguments = $"\"{gameFolder}\"",
+            UseShellExecute = false,
             CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
         };
 
-        var proc = Process.Start(psi);
+        using var proc = Process.Start(psi);
+        if (proc == null)
+        {
+            throw new Exception("Failed to start xenia-vfs-dump.exe process.");
+        }
+
+        string output = await proc.StandardOutput.ReadToEndAsync();
+        string error = await proc.StandardError.ReadToEndAsync();
         await proc.WaitForExitAsync();
+
+        if (proc.ExitCode != 0)
+        {
+            throw new Exception($"xenia-vfs-dump.exe failed with exit code {proc.ExitCode}: {error}");
+        }
+
+        await File.WriteAllTextAsync(vfsOutputPath, output);
 
         var game = new Game { GameFolderPath = gameFolder };
         ParseVfsDump(vfsOutputPath, game);
 
-        // Add to your Game Library
         GameLibraryService.AddGame(game);
     }
 
@@ -167,18 +209,16 @@ public class DownloadManagerService
         game.ExecutablePath = gameData["executable"]?.ToString();
         game.ContentID = gameData["content_id"]?.ToString();
 
-        string contentPath = Path.Combine(game.GameFolderPath, "Content", "0000000000000000", game.TitleID ?? "", game.ContentID ?? "");
+        string contentPath = Path.Combine(game.GameFolderPath ?? "", "Content", "0000000000000000", game.TitleID ?? "", game.ContentID ?? "");
 
         if (Directory.Exists(contentPath))
         {
-            // GOD-style game structure
             game.LaunchPath = Directory.GetFiles(contentPath, "*", SearchOption.AllDirectories)
                 .FirstOrDefault(f => f.EndsWith(".xex", StringComparison.OrdinalIgnoreCase));
         }
         else
         {
-            // Use default.xex
-            game.LaunchPath = Path.Combine(game.GameFolderPath, game.ExecutablePath ?? "default.xex");
+            game.LaunchPath = Path.Combine(game.GameFolderPath ?? "", game.ExecutablePath ?? "default.xex");
         }
     }
 }
